@@ -4,10 +4,10 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.web.bind.annotation.*;
+import ru.bolnik.dima.task.tracker.api.controllers.helpers.ControllerHelper;
 import ru.bolnik.dima.task.tracker.api.dto.AckDto;
 import ru.bolnik.dima.task.tracker.api.dto.ProjectDto;
 import ru.bolnik.dima.task.tracker.api.exceptions.BadRequestException;
-import ru.bolnik.dima.task.tracker.api.exceptions.NotFoundException;
 import ru.bolnik.dima.task.tracker.api.factories.ProjectDtoFactory;
 import ru.bolnik.dima.task.tracker.store.entities.ProjectEntity;
 import ru.bolnik.dima.task.tracker.store.repositories.ProjectRepository;
@@ -25,12 +25,13 @@ import java.util.stream.Stream;
 @RestController
 public class ProjectController {
 
+    ControllerHelper controllerHelper;
+
     ProjectRepository projectRepository;
     ProjectDtoFactory projectDtoFactory;
 
     public static final String FETCH_PROJECTS = "/api/projects";
     public static final String DELETE_PROJECT = "/api/projects/{project_id}";
-
     public static final String CREATE_OR_UPDATE_PROJECT = "/api/projects";
 
 
@@ -39,16 +40,18 @@ public class ProjectController {
             @RequestParam(value = "project_id", required = false) Optional<Long> optionalProjectId,
             @RequestParam(value = "project_name", required = false) Optional<String> optionalProjectName ) {
 
-        boolean isCreate = !optionalProjectId.isPresent();
-        if (isCreate && !optionalProjectId.isPresent()) {
-            throw new BadRequestException("Project name cannot be empty");
-        }
-
         optionalProjectName = optionalProjectName
                 .filter(projectName -> !projectName.trim().isEmpty());
 
+        boolean isCreate = !optionalProjectId.isPresent();
+
+        if (isCreate && !optionalProjectName.isPresent()) {
+            throw new BadRequestException("Project name cannot be empty");
+        }
+
+
         final ProjectEntity project = optionalProjectId
-                .map(this::getProjectOrThrowException)
+                .map(controllerHelper::getProjectOrThrowException)
                 .orElseGet(() -> ProjectEntity.builder().build());
 
 
@@ -99,7 +102,7 @@ public class ProjectController {
     @DeleteMapping(DELETE_PROJECT)
     public AckDto deleteProject(@PathVariable("project_id") Long projectId) {
 
-        getProjectOrThrowException(projectId);
+        controllerHelper.getProjectOrThrowException(projectId);
 
         projectRepository.deleteById(projectId);
 
@@ -107,14 +110,5 @@ public class ProjectController {
 
     }
 
-    private ProjectEntity getProjectOrThrowException(Long projectId) {
-        return projectRepository
-                .findById(projectId)
-                .orElseThrow(() ->
-                        new NotFoundException(
-                                String.format(
-                                        "Project with \"$s\" not found",
-                                        projectId)));
-    }
 
 }
